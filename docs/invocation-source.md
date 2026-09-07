@@ -9,9 +9,9 @@
 | X-Qfei-Channel-Type | cli |
 | X-Qfei-Agent-Source-Type | doubao / doubaoWork / workbuddy / codex / unknown |
 | X-Qfei-Product-Code | everyline |
-| X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / process_executable_path / process_name / none；身份校验不匹配时可为前三项对应的 `_mismatch` |
+| X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / windows_runtime_environment / process_executable_path / process_name / none；身份校验不匹配时可为前三项对应的 `_mismatch` |
 | X-Qfei-Channel-Confidence | high / medium / low / unknown |
-| X-Qfei-Detector-Version | process-ancestry-v2 |
+| X-Qfei-Detector-Version | process-ancestry-v3 |
 | X-Qfei-Rule-Id | 命中的规则编号；无匹配时省略 |
 
 不再发送旧字段 `X-Qfei-Request-Source-Type`。Header 为来源归因信息，不是客户端身份证明或鉴权依据。未识别到来源不会拒绝业务请求。
@@ -31,7 +31,7 @@
 - 失败/崩溃/输出异常降级为 unknown；依旧发送 cli、everyline 和探测版本。Rule-Id 无值时不发送。
 - 探测子 Context 超时不取消父业务 Context；但探测仍计入原有 `--timeout` 和工作流 deadline，不额外放宽业务截止时间。
 - 仅处理来源字段；trim 后为空、超过 256 字节或包含非可打印 ASCII 的来源值丢弃，不改请求体、认证、成功码及写操作不重试的策略。
-- macOS/Windows 使用对应身份探测；Linux 仅按进程路径/名称兜底，无法识别则 unknown。终端、远程执行或脱离客户端的进程链可能只能识别为 unknown。
+- macOS/Windows 使用对应身份探测；Windows 未命中时再检查宿主环境标记，详见 [Windows 环境兜底](windows-runtime-fallback.md)。Linux 仅按进程路径/名称兜底。没有匹配证据时保持 unknown。
 - help、version、config、dry-run、print-input 不探测；token 获取/刷新不携带来源 Header。来源不写入 JWT，不写入 Profile。
 - 七个来源 Header 与独立的[请求 Trace](request-trace.md)并存；来源探测和 Trace 生成分别执行，不缓存客户端来源，也不把一次工作流的所有请求合并为一个 Trace。
 
