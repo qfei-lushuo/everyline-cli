@@ -56,6 +56,6 @@
 
 业务服务可直接从 HTTP Request 读取，例如 Python 的 `request.headers.get("X-Qfei-Agent-Source-Type")` 或 Java 的 `request.getHeader("X-Qfei-Agent-Source-Type")`。是否写入 Context、日志、任务数据或计费上报，由业务方自行决定。
 
-按当前代码，网关相关路由保留这些普通 Header，无需新增后端生产逻辑。open-platform 已增加两条路由经过两层网关过滤器的回归测试，各自覆盖有/无来源字段；相关测试类共 16 项通过。这是本地路由证据，dev 上仍需核对接收方请求，不要求为验收建立永久日志或 Context 能力。
+本仓库交付 CLI 来源 Header 的生成与发送能力；dev 验收需核对上述业务服务实际接收到的字段。CLI 本地测试不能替代部署环境的透传验证。
 
-本次保留 CLI hook 与网关透传测试，不向业务服务之后的计费中台等继续扩展透传。此前新增的后端 Context、Middleware、出站 hook 及日志已随范围收敛撤回。
+后端 Context、日志采集及业务服务之后的计费中台等下游透传不属于本次交付范围。
