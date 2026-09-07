@@ -1,0 +1,61 @@
+# CLI 来源 Header
+
+## 请求行为
+
+`review`（含上传、主体提取、审查、轮询）、`checklist`、`rule` 的实际业务请求，经统一 `openplatform.Client.doOnce` 在发送前执行来源 hook。GET 每次重试重新探测；`review run` 的每个阶段和每次轮询也重新探测。不在登录、安装或 Profile 中缓存来源。
+
+| Header | 值 |
+|---|---|
+| X-Qfei-Channel-Type | cli |
+| X-Qfei-Agent-Source-Type | doubao / doubaoWork / workbuddy / codex / unknown |
+| X-Qfei-Product-Code | everyline |
+| X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / process_executable_path / process_name / none；身份校验不匹配时可为前三项对应的 `_mismatch` |
+| X-Qfei-Channel-Confidence | high / medium / low / unknown |
+| X-Qfei-Detector-Version | process-ancestry-v2 |
+| X-Qfei-Rule-Id | 命中的规则编号；无匹配时省略 |
+
+不再发送旧字段 `X-Qfei-Request-Source-Type`。Header 为来源归因信息，不是客户端身份证明或鉴权依据。未识别到来源不会拒绝业务请求。
+
+## 代码结构
+
+- `internal/invocation/`：从 contract-cli 当前已验证的探测模块移植，保留父进程回溯、macOS 签名、Windows 包身份/签名规则和隔离超时，产品编码改为 everyline。不依赖同事的 cli-inspect 仓库，也不要求本机安装 contract-cli。
+- `internal/cli/environment_hook.go`：统一装配三个业务模块的 HTTP 客户端，每次请求探测并填 Header；`invocation_source` 诊断只打印七个来源白名单字段，不输出 token 或完整进程信息。`--verbose` 另输出独立的 `request_trace` 诊断。
+- `internal/openplatform/client.go`：有序 BeforeRequestHook 扩展点，位于每次 HTTP 尝试内、发送前，不挂到 token Provider。
+- `internal/app/app.go`：在配置和认证初始化之前分派私有探测辅助入口，辅助进程不递归发请求。
+
+探测模块当前是仓库内独立移植，并非两仓库已共享同一个发布模块。指纹规则升级时需同步两个 CLI 的规则和测试。使用与合同 CLI 相同的 gopsutil v4.26.7 和 x/sys v0.41.0；未改动合同 CLI、后端、认证协议或更新功能。
+
+## 超时与兼容
+
+- 一次探测预算 5 秒（含父进程发现与签名检查）；超时会终止并回收辅助进程，Unix 同时终止其签名子进程组。清理允许少量调度开销。
+- 失败/崩溃/输出异常降级为 unknown；依旧发送 cli、everyline 和探测版本。Rule-Id 无值时不发送。
+- 探测子 Context 超时不取消父业务 Context；但探测仍计入原有 `--timeout` 和工作流 deadline，不额外放宽业务截止时间。
+- 仅处理来源字段；trim 后为空、超过 256 字节或包含非可打印 ASCII 的来源值丢弃，不改请求体、认证、成功码及写操作不重试的策略。
+- macOS/Windows 使用对应身份探测；Linux 仅按进程路径/名称兜底，无法识别则 unknown。终端、远程执行或脱离客户端的进程链可能只能识别为 unknown。
+- help、version、config、dry-run、print-input 不探测；token 获取/刷新不携带来源 Header。来源不写入 JWT，不写入 Profile。
+- 七个来源 Header 与独立的[请求 Trace](request-trace.md)并存；来源探测和 Trace 生成分别执行，不缓存客户端来源，也不把一次工作流的所有请求合并为一个 Trace。
+
+## 验证
+
+自动测试：`go test -race ./...`、`go vet ./...`、`npm test`。覆盖两种身份、三个业务模块、multipart/JSON、工作流多次轮询、GET 重试、非法字段、超时降级与辅助进程回收；实际编译入口到本机 HTTP 接收端的测试不使用真实业务凭证。
+
+本地调试可先 `make build`，使用已有且明确选择的测试 Profile，在原业务命令上追加 `--verbose --output json`，例如：
+
+```bash
+./bin/everyline-cli checklist list --profile <测试Profile> --verbose --output json
+```
+
+分别从目标客户端执行。stderr 的 `invocation_source` 是实际附加值；dev 验收还需从业务服务接收到的 HTTP 请求核对字段。CLI 日志/本机测试不等于 dev 链路已验收。审查/写操作可能产生实际业务或计费，仅在明确授权的测试数据上执行。
+
+## 交付边界与业务接收方
+
+验收点是业务服务收到 CLI 的来源 Header：
+
+- 智审接口：CLI → open-gateway → open-platform-contract-review → platform-contract-api。
+- 清单/规则管理：CLI → open-gateway → open-platform → review-rule。
+
+业务服务可直接从 HTTP Request 读取，例如 Python 的 `request.headers.get("X-Qfei-Agent-Source-Type")` 或 Java 的 `request.getHeader("X-Qfei-Agent-Source-Type")`。是否写入 Context、日志、任务数据或计费上报，由业务方自行决定。
+
+按当前代码，网关相关路由保留这些普通 Header，无需新增后端生产逻辑。open-platform 已增加两条路由经过两层网关过滤器的回归测试，各自覆盖有/无来源字段；相关测试类共 16 项通过。这是本地路由证据，dev 上仍需核对接收方请求，不要求为验收建立永久日志或 Context 能力。
+
+本次保留 CLI hook 与网关透传测试，不向业务服务之后的计费中台等继续扩展透传。此前新增的后端 Context、Middleware、出站 hook 及日志已随范围收敛撤回。
