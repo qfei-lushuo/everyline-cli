@@ -44,4 +44,3 @@ fallback when ancestry is broken; existing signed Doubao matches remain high.
 Using depth 1 deliberately truncates ancestry and tests fallback in isolation;
 it is a diagnostic simulation, not proof of the client's normal process chain.
 No login, business requests, global CLI replacement, or uploads are required.
-
