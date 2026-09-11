@@ -59,6 +59,15 @@ var applicationRules = []applicationRule{
 		ProcessNames:      []string{"workbuddy", "workbuddy.exe", "codebuddy", "codebuddy.exe"},
 	},
 	{
+		ID:      "client.workbuddy_international",
+		Channel: "workbuddy",
+		// Verified WorkBuddyAI.exe in the 2026-09-11 Windows sample.
+		// Keep its certificate/path pair separate from the domestic release.
+		WindowsCertificateSHA256: []string{"a5260c88f699b19bd6ed100bc08120b4fd872930ee7538c3d210eb14081a0f45"},
+		ExecutableMarkers:        []string{`\workbuddyai\`, `\workbuddyai.exe`},
+		ProcessNames:             []string{"workbuddyai.exe"},
+	},
+	{
 		ID:       "client.codex",
 		Channel:  "codex",
 		BundleID: "com.openai.codex",
@@ -88,7 +97,7 @@ func Analyze(chain []Process, identities []ApplicationIdentity) Result {
 			continue
 		}
 		for _, rule := range applicationRules {
-			if strings.EqualFold(identity.BundleID, rule.BundleID) && strings.EqualFold(identity.TeamID, rule.TeamID) {
+			if rule.BundleID != "" && rule.TeamID != "" && strings.EqualFold(identity.BundleID, rule.BundleID) && strings.EqualFold(identity.TeamID, rule.TeamID) {
 				result.AgentSourceType = rule.Channel
 				result.EvidenceType = "macos_code_signature"
 				result.Confidence = "high"

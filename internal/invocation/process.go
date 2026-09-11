@@ -21,7 +21,11 @@ func inspectProcess(pid int32, maxDepth int) Result {
 	result.DetectorVersion = DetectorVersion
 	result.Processes = chain
 	result.Warnings = warnings
-	return platformEnvironmentFallback(result)
+	result = platformEnvironmentFallback(result)
+	return runtimeEnvironmentFallback(result, identities, func(key string) bool {
+		value, exists := os.LookupEnv(key)
+		return exists && strings.TrimSpace(value) != ""
+	}, os.Getenv)
 }
 
 func Ancestry(maxDepth int) ([]Process, []string) {

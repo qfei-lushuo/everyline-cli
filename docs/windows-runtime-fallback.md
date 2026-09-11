@@ -1,6 +1,6 @@
 # Windows runtime environment fallback
 
-Detector version: `process-ancestry-v3`.
+Windows fallback introduced in `process-ancestry-v3`; its rules are preserved in `process-ancestry-v4`.
 
 The existing process ancestry and identity checks remain primary. Only an
 `unknown / none` result uses the Windows-only fallback, inside the existing
