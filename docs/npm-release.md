@@ -5,16 +5,16 @@ npm 包名为 `@qfeius/everyline-cli`，终端命令和两项 Skill 名称保持
 ## 一次性配置
 
 1. 确认 npm 账号有 `@qfeius` 下此包的发布权限。首次发布前先检查组织权限和包名归属。
-2. 在 GitHub 仓库 `qfeius/everyline-cli` 的 **Settings → Secrets and variables → Actions** 中添加 `NPM_TOKEN`。使用具有包写权限、允许非交互发布的 granular access token；按 npm 当前规则配置 Bypass 2FA，不将 token 写入仓库。
-3. 将 `.github/workflows/release.yml` 推送到 GitHub。工作流使用 GitHub 自动提供的 token 创建 Release，无需另配 GitHub token。
+2. 在 npm 包 `@qfeius/everyline-cli` 的 Trusted Publisher 中绑定 GitHub 仓库 `qfeius/everyline-cli` 和工作流文件 `npm-publish.yml`。不配置长期 `NPM_TOKEN`。
+3. 将 `.github/workflows/release.yml` 和 `.github/workflows/npm-publish.yml` 推送到 GitHub。前者使用 GitHub 自动提供的 token 创建 Release，后者通过 GitHub OIDC 发布 npm。
 
-Token 权限说明：[npm CI/CD 文档](https://docs.npmjs.com/using-private-packages-in-a-ci-cd-workflow/)。
+Trusted Publishing 说明：[npm Trusted Publishers 文档](https://docs.npmjs.com/trusted-publishers/)。
 
 ## 发布步骤
 
-1. 在准备发布的分支执行 `make package`。blue 和 release 共用 npm 包的全局递增版本序列，版本统一为纯 `x.y.z`，不添加 `-blue`、`-release`、`-beta` 等后缀或构建元数据。选号查询 npm 的全量已发布版本，不只看当前渠道；已发布版本不重复使用。
-2. 执行 `make release-check`。构建脚本会同步两项 Skill 的版本；提交版本及相关改动。
-3. 创建并推送与包版本完全一致的标签，例如：
+1. 确定尚未发布的新版本。blue 和 release 共用 npm 包的全局递增版本序列，版本统一为纯 `x.y.z`，不添加 `-blue`、`-release`、`-beta` 等后缀或构建元数据；已发布版本不重复使用。
+2. 执行 `make release-check`，确认当前源码可以构建和安装。
+3. 创建并推送新版本标签，例如：
 
 ```bash
 git tag v0.1.12
@@ -24,7 +24,7 @@ git push github v0.1.12
 
 上例中的版本须替换为本次版本。`github` 为本仓库指向 GitHub 的远端名称。
 
-标签触发的工作流依次校验版本与 npm 登录、运行测试和安装校验、发布 GitHub 原生二进制制品、上传 npm 安装包和两项 Skill ZIP、发布 npm 包，最后回查 npm 渠道版本。blue 和 release 分支的 `publishConfig.tag` 均固定为 `latest`，环境由对应分支的包内容决定；后发布的版本更新同一个 `latest`。两边都要求标签为 `v<package.json.version>`，发布前置校验拒绝预发布后缀和构建元数据。
+标签会并行触发两条职责独立的工作流：`release.yml` 以 Tag 为版本来源，运行测试和安装校验、发布 GitHub 原生二进制制品，并上传 npm 安装包和两项 Skill ZIP；`npm-publish.yml` 同样从 Tag 写入构建版本，通过 OIDC 发布 npm。blue 和 release 分支的 `publishConfig.tag` 均固定为 `latest`，环境由对应分支的包内容决定；后发布的版本更新同一个 `latest`。发布前置校验拒绝预发布后缀和构建元数据。
 
 GitLab 流水线继续负责测试、构建和保存 `.tgz`，不重复发布 npm。
 
@@ -66,8 +66,8 @@ everyline-cli version --output json
 
 ## 发布失败
 
-- 缺少 `NPM_TOKEN`：工作流在发布前明确报错，配置 GitHub Secret 后重跑。
-- npm 403：核对 scope、包写权限、token 有效期及非交互发布权限。
+- npm OIDC 认证失败：核对 Trusted Publisher 中的 GitHub 组织、仓库和工作流文件名是否分别为 `qfeius`、`everyline-cli` 和 `npm-publish.yml`。
+- npm 403：核对 npm 组织权限、包发布权限及 Trusted Publisher 配置。
 - 版本已存在：不要覆盖；核对已发布结果，需要变更时提升版本并创建新标签。
 - GitHub Release 已生成但 npm 发布失败：npm 包尚未发布成功；解决错误后可安装 Release 中的 `.tgz`，再处理 npm 发布。不要仅凭 Release 存在宣称 npm 已可安装。
 
