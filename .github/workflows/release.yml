@@ -51,6 +51,12 @@ jobs:
       - name: Test, build and verify installation
         run: make release-check
 
+      # release-check 会按 Tag 修改包和 Skill 版本；GoReleaser 要求工作区完全干净。
+      - name: Restore clean checkout for GoReleaser
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Publish native GitHub release
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -58,6 +64,13 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Set artifact versions from tag
+        env:
+          RELEASE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version
+          node scripts/sync-skill-versions.js
 
       - name: Package CLI and Skills
         run: |

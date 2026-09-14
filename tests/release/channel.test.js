@@ -89,3 +89,19 @@ test("npm 发布使用独立 OIDC 工作流", () => {
   assert.match(workflow, /npm publish --provenance --access public/);
   assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN/);
 });
+
+/**
+ * 验证 GitHub Release 在干净 checkout 上运行 GoReleaser，并仅在之后生成带 Tag 版本的附件。
+ * 入参：无；读取实际 GitHub Release 工作流。
+ * 返回值：void，清理或附件版本同步顺序错误时断言失败。
+ */
+test("GoReleaser 使用干净工作区并在发布后生成版本化附件", () => {
+  const workflow = readFileSync(join(__dirname, "../../.github/workflows/release.yml"), "utf8");
+  const clean = workflow.indexOf("name: Restore clean checkout for GoReleaser");
+  const goreleaser = workflow.indexOf("uses: goreleaser/goreleaser-action@v6");
+  const artifacts = workflow.indexOf("name: Set artifact versions from tag");
+  assert.ok(clean > 0 && clean < goreleaser, "GoReleaser 前必须恢复干净 checkout");
+  assert.ok(artifacts > goreleaser, "只有 GoReleaser 完成后才能修改附件版本");
+  assert.match(workflow.slice(clean, goreleaser), /uses: actions\/checkout@v6/);
+  assert.match(workflow.slice(artifacts), /node scripts\/sync-skill-versions\.js/);
+});
