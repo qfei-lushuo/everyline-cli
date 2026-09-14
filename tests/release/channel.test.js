@@ -11,39 +11,40 @@ const versions = require("../../scripts/package-version");
 const pkg = require("../../package.json");
 
 /**
- * 验证 release 发布的真实前置脚本只接受与包版本一致的正式版本标签和 latest 渠道。
+ * 验证 release 发布的真实前置脚本以正式版本标签为准，并要求 latest 渠道。
  * 入参：无；读取实际工作流并隔离输出、包数据和进程环境。
- * 返回值：void，预发布、构建元数据、其他渠道或版本不一致通过检查时断言失败。
+ * 返回值：void，预发布、构建元数据或其他渠道通过检查时断言失败。
  */
-test("release 发布前置检查只接受正式版本与 latest 渠道", () => {
+test("release 发布前置检查以正式版本标签为准并要求 latest 渠道", () => {
   const workflow = readFileSync(join(__dirname, "../../.github/workflows/release.yml"), "utf8");
-  const source = workflow.match(/node <<'NODE'\r?\n([\s\S]*?)\r?\n\s+NODE/)[1];
+  const source = workflow.match(/node - "\$version" <<'NODE'\r?\n([\s\S]*?)\r?\n\s+NODE/)[1];
   const cases = [
-    { tag: `v${pkg.version}`, version: pkg.version, channel: "latest", valid: true },
-    { tag: "v0.1.11", version: "0.1.11", channel: "latest", valid: true },
-    { tag: "v0.1.11-blue.1", version: "0.1.11-blue.1", channel: "latest" },
-    { tag: "v0.1.11-beta.1", version: "0.1.11-beta.1", channel: "latest" },
-    { tag: "v0.1.11-release.1", version: "0.1.11-release.1", channel: "latest" },
-    { tag: "v0.1.11+build", version: "0.1.11+build", channel: "latest" },
-    { tag: "v01.1.11", version: "01.1.11", channel: "latest" },
-    { tag: "v0.1.11", version: "0.1.12", channel: "latest" },
-    { tag: "v0.1.11", version: "0.1.11", channel: "blue" },
-    { tag: "v0.1.11", version: "0.1.11", channel: "beta" },
+    { tag: `v${pkg.version}`, channel: "latest", valid: true },
+    { tag: "v0.1.11", channel: "latest", valid: true },
+    { tag: "v0.1.11-blue.1", channel: "latest" },
+    { tag: "v0.1.11-beta.1", channel: "latest" },
+    { tag: "v0.1.11-release.1", channel: "latest" },
+    { tag: "v0.1.11+build", channel: "latest" },
+    { tag: "v01.1.11", channel: "latest" },
+    { tag: "v0.1.11", channel: "blue" },
+    { tag: "v0.1.11", channel: "beta" },
   ];
   for (const scenario of cases) {
     let output = "";
+    const version = scenario.tag.slice(1);
     const run = () => runInNewContext(source, {
-      process: { env: { GITHUB_REF_NAME: scenario.tag, GITHUB_OUTPUT: "fixture-output" } },
+      process: { argv: ["node", "-", version], env: { GITHUB_OUTPUT: "fixture-output" } },
       require: (name) => {
         if (name === "node:fs") return { appendFileSync: (file, content) => { assert.equal(file, "fixture-output"); output += content; } };
-        if (name === "./package.json") return { ...pkg, version: scenario.version, publishConfig: { tag: scenario.channel } };
+        if (name === "./package.json") return { ...pkg, publishConfig: { tag: scenario.channel } };
         if (name === "./scripts/package-version") return versions;
         throw new Error(`未预期的依赖: ${name}`);
       },
     });
     if (scenario.valid) {
       run();
-      assert.equal(output, `version=${scenario.version}\nchannel=latest\n`);
+      assert.equal(output, `version=${version}\nchannel=latest\n`);
+      assert.match(workflow, /npm version "\$version" --no-git-tag-version --allow-same-version/);
     } else {
       assert.throws(run, /发布|版本|渠道/);
       assert.equal(output, "");
