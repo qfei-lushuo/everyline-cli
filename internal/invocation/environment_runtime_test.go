@@ -138,8 +138,8 @@ func TestReplayWindowsFeishuAndWorkBuddyInternational(t *testing.T) {
 		t.Fatalf("international sample: %+v", got)
 	}
 	identity.CertificateSHA256 = "a7d0aff6774068a4f37485b7e61cbf9d31b65190aaedfe8cb79ebd3c65cbce76"
-	if got := Analyze(chain, []ApplicationIdentity{identity}); got.AgentSourceType != "unknown" || got.EvidenceType != "windows_authenticode_mismatch" {
-		t.Fatalf("cross-release certificate accepted: %+v", got)
+	if got := Analyze(chain, []ApplicationIdentity{identity}); got.AgentSourceType != "workbuddy" || got.EvidenceType != "process_executable_path" || got.Confidence != "medium" {
+		t.Fatalf("cross-release certificate should use path attribution: %+v", got)
 	}
 }
 

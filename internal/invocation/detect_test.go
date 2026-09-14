@@ -117,7 +117,7 @@ func TestAnalyzeUsesDoubaoWorkWindowsAuthenticodeIdentity(t *testing.T) {
 func TestAnalyzeRejectsWrongWindowsCertificateWithoutPathFallback(t *testing.T) {
 	chain := []Process{
 		{Depth: 0, PID: 30, PPID: 20, Name: "everyline-cli"},
-		{Depth: 1, PID: 20, PPID: 1, Name: "WorkBuddy.exe", Executable: `C:\\Users\\lucas\\AppData\\Local\\WorkBuddy\\WorkBuddy.exe`},
+		{Depth: 1, PID: 20, PPID: 1, Name: "Doubao.exe", Executable: `C:\\Users\\lucas\\AppData\\Local\\Doubao\\Doubao.exe`},
 	}
 	identities := []ApplicationIdentity{
 		{ProcessDepth: 1, ExecutablePath: chain[1].Executable, CertificateSHA256: "untrusted", SignatureValid: true},

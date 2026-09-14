@@ -180,6 +180,14 @@ func Analyze(chain []Process, identities []ApplicationIdentity) Result {
 				continue
 			}
 
+			// WorkBuddy attribution tolerates certificate rotation and helper-specific
+			// certificates. Keep verified matches above as high confidence, but let
+			// process/path evidence below identify it when verification is unavailable.
+			if rule.Channel == "workbuddy" {
+				result.Warnings = append(result.Warnings, "WorkBuddy signing identity did not match; using process attribution")
+				continue
+			}
+
 			result.Application = copyApplicationIdentity(identity)
 			result.MatchedProcess = processAtDepth(chain, identity.ProcessDepth)
 			result.RuleID = rule.ID + ".windows-identity-mismatch"

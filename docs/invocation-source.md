@@ -11,7 +11,7 @@
 | X-Qfei-Product-Code | everyline |
 | X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / windows_runtime_environment / process_executable_path / process_name / none；身份校验不匹配时可为前三项对应的 `_mismatch` |
 | X-Qfei-Channel-Confidence | high / medium / low / unknown |
-| X-Qfei-Detector-Version | process-ancestry-v4 |
+| X-Qfei-Detector-Version | process-ancestry-v5 |
 | X-Qfei-Rule-Id | 命中的规则编号；无匹配时省略 |
 
 不再发送旧字段 `X-Qfei-Request-Source-Type`。Header 为来源归因信息，不是客户端身份证明或鉴权依据。未识别到来源不会拒绝业务请求。
@@ -63,3 +63,5 @@ macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证�
 本仓库交付 CLI 来源 Header 的生成与发送能力；dev 验收需核对上述业务服务实际接收到的字段。CLI 本地测试不能替代部署环境的透传验证。
 
 后端 Context、日志采集及业务服务之后的计费中台等下游透传不属于本次交付范围。
+
+Windows WorkBuddy 的证书轮换降级策略见 [升级兼容修复](workbuddy-upgrade-compatibility.md)；其签名不匹配不再阻断进程／路径归因，其他产品维持原策略。

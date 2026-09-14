@@ -125,3 +125,19 @@ func TestInspectionHelperUsesRuntimeFallback(t *testing.T) {
 		t.Fatalf("helper did not apply fallback: %+v", got)
 	}
 }
+
+func TestWindowsWorkBuddySafeDeleteFallback(t *testing.T) {
+	for _, product := range []string{"WorkBuddy", "WorkBuddyAI"} {
+		path := filepath.Join(t.TempDir(), product, "resources", "app.asar.unpacked", "cli", "vendor", "shim", "safe-bin", "safe-delete-bash-env.sh")
+		writeFixture(t, path, "# shell")
+		got := windowsEnvironmentFallback(Result{AgentSourceType: "unknown", EvidenceType: "none"}, func(key string) string {
+			if key == "BASH_ENV" {
+				return path
+			}
+			return ""
+		})
+		if got.AgentSourceType != "workbuddy" || got.Confidence != "low" || got.RuleID != "client.workbuddy.environment" {
+			t.Fatalf("%s fallback: %+v", product, got)
+		}
+	}
+}

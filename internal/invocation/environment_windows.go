@@ -3,8 +3,6 @@
 package invocation
 
 import (
-	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -65,40 +63,7 @@ func runtimePath(value string) string {
 }
 
 func workbuddyEnvironment(value string) bool {
-	path := runtimePath(value)
-	if path == "" || !strings.EqualFold(filepath.Base(path), "shell-runtime-bash-env.sh") {
-		return false
-	}
-	shim := filepath.Dir(path)
-	vendor := filepath.Dir(shim)
-	if !strings.EqualFold(filepath.Base(shim), "shim") || !strings.EqualFold(filepath.Base(vendor), "vendor") {
-		return false
-	}
-	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() {
-		return false
-	}
-	file, err := os.Open(filepath.Join(filepath.Dir(vendor), "product.json"))
-	if err != nil {
-		return false
-	}
-	defer file.Close()
-	// The installed product file includes extensive UI config (~384 KiB).
-	// Bound the read while allowing that real runtime metadata.
-	data, err := io.ReadAll(io.LimitReader(file, 1024*1024+1))
-	if err != nil || len(data) > 1024*1024 {
-		return false
-	}
-	var product struct {
-		ProductName    string `json:"productName"`
-		Authentication struct {
-			ID string `json:"id"`
-		} `json:"authentication"`
-	}
-	if json.Unmarshal(data, &product) != nil {
-		return false
-	}
-	return product.ProductName == "WorkBuddy" && product.Authentication.ID == "workbuddy-desktop"
+	return workbuddyShellEnvironment(runtimePath(value))
 }
 
 func doubaoEnvironment(baseValue, dlcValue string) string {

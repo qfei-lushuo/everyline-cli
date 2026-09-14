@@ -2,7 +2,7 @@ package invocation
 
 const (
 	DefaultMaxDepth = 32
-	DetectorVersion = "process-ancestry-v4"
+	DetectorVersion = "process-ancestry-v5"
 )
 
 type Process struct {
