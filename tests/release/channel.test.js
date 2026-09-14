@@ -80,15 +80,17 @@ test("npm 发布入口校验 latest 正式版本且保留 CI 本地打包", (t) 
  * 入参：无；读取实际 npm 发布工作流。
  * 返回值：void，OIDC 权限、Tag 版本写入或 provenance 发布缺失时断言失败。
  */
-test("npm 发布使用独立 OIDC 工作流", () => {
+test("统一发布工作流使用单个 OIDC job", () => {
   const workflow = readFileSync(join(__dirname, "../../.github/workflows/npm-publish.yml"), "utf8");
   assert.equal(existsSync(join(__dirname, "../../.github/workflows/release.yml")), false);
   assert.equal(pkg.repository?.url, "git+https://github.com/qfeius/everyline-cli.git");
+  assert.match(workflow, /jobs:\s*\n  release:/);
+  assert.doesNotMatch(workflow, /\n  (?:github-release|npm-publish):/);
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /node-version:\s*"24"/);
-  assert.match(workflow, /packageData\.version = process\.argv\[2\]/);
+  assert.match(workflow, /npm version "\$version" --no-git-tag-version --allow-same-version/);
   assert.match(workflow, /node scripts\/sync-skill-versions\.js/);
-  assert.match(workflow, /npm publish --provenance --access public/);
+  assert.match(workflow, /npm publish "everyline-cli-\$\{RELEASE_VERSION\}\.tgz" --provenance --access public/);
   assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN/);
 });
 

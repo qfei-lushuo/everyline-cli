@@ -24,7 +24,7 @@ git push github v0.1.12
 
 上例中的版本须替换为本次版本。`github` 为本仓库指向 GitHub 的远端名称。
 
-标签只触发 `npm-publish.yml` 一条工作流，内部并行运行两个独立 job：一个以 Tag 为版本来源，运行测试和安装校验、发布 GitHub 原生二进制制品，并上传 npm 安装包和两项 Skill ZIP；另一个从同一 Tag 写入构建版本，通过 OIDC 发布 npm。任一 job 失败时可以只重跑失败 job。blue 和 release 分支的 `publishConfig.tag` 均固定为 `latest`，环境由对应分支的包内容决定；后发布的版本更新同一个 `latest`。发布前置校验拒绝预发布后缀和构建元数据。
+标签只触发 `npm-publish.yml` 一条工作流和一个 `release` job：以 Tag 为版本来源，运行一次测试和安装校验，依次发布 GitHub 原生二进制制品、上传 npm 安装包和两项 Skill ZIP，并通过 OIDC 将同一个 `.tgz` 发布到 npm。blue 和 release 分支的 `publishConfig.tag` 均固定为 `latest`，环境由对应分支的包内容决定；后发布的版本更新同一个 `latest`。发布前置校验拒绝预发布后缀和构建元数据。
 
 GitLab 流水线继续负责测试、构建和保存 `.tgz`，不重复发布 npm。
 
