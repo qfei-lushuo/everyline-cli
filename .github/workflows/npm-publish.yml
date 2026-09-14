@@ -51,6 +51,7 @@ jobs:
           writeFileSync(path, `${JSON.stringify(packageData, null, 2)}\n`);
           NODE
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          node scripts/sync-skill-versions.js
 
       - name: Run release checks and build platform assets
         env:

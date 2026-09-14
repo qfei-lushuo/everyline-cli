@@ -85,6 +85,7 @@ test("npm 发布使用独立 OIDC 工作流", () => {
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /node-version:\s*"24"/);
   assert.match(workflow, /packageData\.version = process\.argv\[2\]/);
+  assert.match(workflow, /node scripts\/sync-skill-versions\.js/);
   assert.match(workflow, /npm publish --provenance --access public/);
   assert.doesNotMatch(workflow, /NPM_TOKEN|NODE_AUTH_TOKEN/);
 });

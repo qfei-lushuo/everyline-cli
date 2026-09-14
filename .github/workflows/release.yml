@@ -46,6 +46,7 @@ jobs:
           appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\nchannel=${pkg.publishConfig.tag}\n`);
           NODE
           npm version "$version" --no-git-tag-version --allow-same-version
+          node scripts/sync-skill-versions.js
 
       - name: Test, build and verify installation
         run: make release-check
