@@ -2,7 +2,7 @@
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawnSync } = require("node:child_process");
-const { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
+const { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const test = require("node:test");
@@ -16,7 +16,7 @@ const pkg = require("../../package.json");
  * 返回值：void，预发布、构建元数据或其他渠道通过检查时断言失败。
  */
 test("release 发布前置检查以正式版本标签为准并要求 latest 渠道", () => {
-  const workflow = readFileSync(join(__dirname, "../../.github/workflows/release.yml"), "utf8");
+  const workflow = readFileSync(join(__dirname, "../../.github/workflows/npm-publish.yml"), "utf8");
   const source = workflow.match(/node - "\$version" <<'NODE'\r?\n([\s\S]*?)\r?\n\s+NODE/)[1];
   const cases = [
     { tag: `v${pkg.version}`, channel: "latest", valid: true },
@@ -82,6 +82,7 @@ test("npm 发布入口校验 latest 正式版本且保留 CI 本地打包", (t) 
  */
 test("npm 发布使用独立 OIDC 工作流", () => {
   const workflow = readFileSync(join(__dirname, "../../.github/workflows/npm-publish.yml"), "utf8");
+  assert.equal(existsSync(join(__dirname, "../../.github/workflows/release.yml")), false);
   assert.equal(pkg.repository?.url, "git+https://github.com/qfeius/everyline-cli.git");
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /node-version:\s*"24"/);
@@ -97,7 +98,7 @@ test("npm 发布使用独立 OIDC 工作流", () => {
  * 返回值：void，清理或附件版本同步顺序错误时断言失败。
  */
 test("GoReleaser 使用干净工作区并在发布后生成版本化附件", () => {
-  const workflow = readFileSync(join(__dirname, "../../.github/workflows/release.yml"), "utf8");
+  const workflow = readFileSync(join(__dirname, "../../.github/workflows/npm-publish.yml"), "utf8");
   const clean = workflow.indexOf("name: Restore clean checkout for GoReleaser");
   const goreleaser = workflow.indexOf("uses: goreleaser/goreleaser-action@v6");
   const artifacts = workflow.indexOf("name: Set artifact versions from tag");

@@ -6,7 +6,7 @@ npm 包名为 `@qfeius/everyline-cli`，终端命令和两项 Skill 名称保持
 
 1. 确认 npm 账号有 `@qfeius` 下此包的发布权限。首次发布前先检查组织权限和包名归属。
 2. 在 npm 包 `@qfeius/everyline-cli` 的 Trusted Publisher 中绑定 GitHub 仓库 `qfeius/everyline-cli` 和工作流文件 `npm-publish.yml`。不配置长期 `NPM_TOKEN`。
-3. 将 `.github/workflows/release.yml` 和 `.github/workflows/npm-publish.yml` 推送到 GitHub。前者使用 GitHub 自动提供的 token 创建 Release，后者通过 GitHub OIDC 发布 npm。
+3. 将 `.github/workflows/npm-publish.yml` 推送到 GitHub。该工作流使用 GitHub 自动提供的 token 创建 Release，并通过 GitHub OIDC 发布 npm。
 
 Trusted Publishing 说明：[npm Trusted Publishers 文档](https://docs.npmjs.com/trusted-publishers/)。
 
@@ -24,7 +24,7 @@ git push github v0.1.12
 
 上例中的版本须替换为本次版本。`github` 为本仓库指向 GitHub 的远端名称。
 
-标签会并行触发两条职责独立的工作流：`release.yml` 以 Tag 为版本来源，运行测试和安装校验、发布 GitHub 原生二进制制品，并上传 npm 安装包和两项 Skill ZIP；`npm-publish.yml` 同样从 Tag 写入构建版本，通过 OIDC 发布 npm。blue 和 release 分支的 `publishConfig.tag` 均固定为 `latest`，环境由对应分支的包内容决定；后发布的版本更新同一个 `latest`。发布前置校验拒绝预发布后缀和构建元数据。
+标签只触发 `npm-publish.yml` 一条工作流，内部并行运行两个独立 job：一个以 Tag 为版本来源，运行测试和安装校验、发布 GitHub 原生二进制制品，并上传 npm 安装包和两项 Skill ZIP；另一个从同一 Tag 写入构建版本，通过 OIDC 发布 npm。任一 job 失败时可以只重跑失败 job。blue 和 release 分支的 `publishConfig.tag` 均固定为 `latest`，环境由对应分支的包内容决定；后发布的版本更新同一个 `latest`。发布前置校验拒绝预发布后缀和构建元数据。
 
 GitLab 流水线继续负责测试、构建和保存 `.tgz`，不重复发布 npm。
 
