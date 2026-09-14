@@ -51,13 +51,13 @@ var applicationRules = []applicationRule{
 		ID:              "client.workbuddy",
 		Channel:         "workbuddy",
 		BundleID:        "com.workbuddy.workbuddy",
-		BundleIDAliases: []string{"com.tencent.workbuddy.mac"},
+		BundleIDAliases: []string{"com.tencent.workbuddy.mac", "com.workbuddy.workbuddy-ai"},
 		TeamID:          "FN2V63AD2J",
 		// Leaf certificate from the official WorkBuddy Windows installer 5.3.14.36279234.
 		WindowsCertificateSHA256: []string{
 			"a7d0aff6774068a4f37485b7e61cbf9d31b65190aaedfe8cb79ebd3c65cbce76",
 		},
-		ExecutableMarkers: []string{"/applications/workbuddy.app/", `\workbuddy\`, `\codebuddy\`, `\workbuddy.exe`, `\codebuddy.exe`},
+		ExecutableMarkers: []string{"/applications/workbuddy.app/", "/applications/workbuddy ai.app/", `\workbuddy\`, `\codebuddy\`, `\workbuddy.exe`, `\codebuddy.exe`},
 		ProcessNames:      []string{"workbuddy", "workbuddy.exe", "codebuddy", "codebuddy.exe"},
 	},
 	{

@@ -42,8 +42,8 @@ func TestReplayMacSignedIdentityAndFeishuSample(t *testing.T) {
 		{BundlePath: lark.BundlePath, BundleID: lark.BundleID, TeamID: lark.TeamID},
 		{BundlePath: lark.BundlePath, BundleID: lark.BundleID, TeamID: "WRONG", SignatureValid: true},
 	} {
-		if got := runtimeEnvironmentFallback(before, []ApplicationIdentity{identity}, samplePresence(officeSampleKeys), nil); got.AgentSourceType != "unknown" {
-			t.Fatalf("unverified or wrong Feishu identity accepted: %+v", got)
+		if got := runtimeEnvironmentFallback(before, []ApplicationIdentity{identity}, samplePresence(officeSampleKeys), nil); got.AgentSourceType != "doubaoWork" || got.Confidence != "low" || got.EvidenceType != "host_path_runtime_environment" {
+			t.Fatalf("Feishu path fallback lost on identity change: %+v", got)
 		}
 	}
 	// The standalone Mac sample already matches the old signature registry.
@@ -116,8 +116,8 @@ func TestReplayWindowsFeishuAndWorkBuddyInternational(t *testing.T) {
 		{ExecutablePath: feishuPath, SignatureValid: true, CertificateSHA256: "wrong"},
 		{ExecutablePath: `C:\other\other.exe`, SignatureValid: true, CertificateSHA256: identity.CertificateSHA256},
 	} {
-		if got := runtimeEnvironmentFallback(before, []ApplicationIdentity{variant}, samplePresence(officeSampleKeys), nil); got.AgentSourceType != "unknown" {
-			t.Fatalf("invalid host accepted: %+v", got)
+		if got := runtimeEnvironmentFallback(before, []ApplicationIdentity{variant}, samplePresence(officeSampleKeys), nil); got.AgentSourceType != "doubaoWork" || got.Confidence != "low" || got.EvidenceType != "host_path_runtime_environment" {
+			t.Fatalf("Feishu path fallback lost on identity change: %+v", got)
 		}
 	}
 	if got := runtimeEnvironmentFallback(before, []ApplicationIdentity{identity}, samplePresence(nil), nil); got.AgentSourceType != "unknown" {
@@ -185,5 +185,36 @@ func TestRuntimeFallbackInspectionWiring(t *testing.T) {
 				t.Fatalf("incomplete cloud evidence accepted: %+v", got)
 			}
 		})
+	}
+}
+
+func TestFeishuRuntimePathRequiresBothProductAndHost(t *testing.T) {
+	for _, platform := range []string{"darwin", "windows"} {
+		path := "/Applications/Lark.app/Contents/MacOS/Lark"
+		if platform == "windows" {
+			path = `C:\Users\sample\AppData\Local\Feishu\app\Feishu.exe`
+		}
+		for _, tc := range []struct {
+			name, path string
+			depth      int
+			keys       []string
+			want       string
+		}{
+			{"both", path, 1, officeSampleKeys, "doubaoWork"},
+			{"host alone", path, 1, nil, "unknown"},
+			{"runtime alone", "/bin/bash", 1, officeSampleKeys, "unknown"},
+			{"current process is not host", path, 0, officeSampleKeys, "unknown"},
+			{"similar bundle", "/Applications/Lark.app.fake/Contents/MacOS/Lark", 1, officeSampleKeys, "unknown"},
+		} {
+			t.Run(platform+"/"+tc.name, func(t *testing.T) {
+				before := Analyze(nil, nil)
+				before.Platform = platform
+				before.Processes = []Process{{Depth: tc.depth, Executable: tc.path}}
+				got := runtimeEnvironmentFallback(before, nil, samplePresence(tc.keys), nil)
+				if got.AgentSourceType != tc.want {
+					t.Fatalf("got %+v, want %s", got, tc.want)
+				}
+			})
+		}
 	}
 }

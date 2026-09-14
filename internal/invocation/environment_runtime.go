@@ -7,7 +7,7 @@ import (
 )
 
 // Runtime evidence is attribution, not authentication. Only fill an otherwise
-// unknown result; never override a verified identity or a signature mismatch.
+// unknown result; preserve existing attribution and conflicting evidence.
 // has reports nonempty variable presence, without retaining or logging values.
 func runtimeEnvironmentFallback(result Result, identities []ApplicationIdentity, has func(string) bool, getenv func(string) string) Result {
 	if result.AgentSourceType != "unknown" || result.EvidenceType != "none" {
@@ -59,6 +59,24 @@ func runtimeEnvironmentFallback(result Result, identities []ApplicationIdentity,
 					"matched verified Feishu executable and Doubao Work runtime markers")
 				result.Application = copyApplicationIdentity(identity)
 				result.MatchedProcess = processAtDepth(result.Processes, identity.ProcessDepth)
+				return result
+			}
+		}
+	}
+	// Host identity is optional corroboration. Product-specific runtime markers
+	// plus an observed host ancestor still identify the embedded product when
+	// certificate rotation, bundle changes or signature inspection fail.
+	if office && (result.Platform == "darwin" || result.Platform == "windows") {
+		for _, process := range result.Processes {
+			path := normalizeExecutable(process.Executable)
+			host := result.Platform == "windows" && windowsFeishuExecutable(path)
+			if result.Platform == "darwin" {
+				host = strings.Contains(path, "/lark.app/contents/") || strings.Contains(path, "/feishu.app/contents/")
+			}
+			if process.Depth > 0 && host {
+				result = matchedRuntime(result, "doubaoWork", "client.doubao_work.feishu-runtime-path", "host_path_runtime_environment",
+					"matched Feishu host ancestor path and Doubao Work runtime markers")
+				result.MatchedProcess = processAtDepth(result.Processes, process.Depth)
 				return result
 			}
 		}
