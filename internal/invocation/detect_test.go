@@ -39,7 +39,7 @@ func TestAnalyzeRecognizesVerifiedDoubaoWorkIdentity(t *testing.T) {
 	}
 }
 
-func TestAnalyzeRejectsWrongSigningTeamWithoutPathFallback(t *testing.T) {
+func TestAnalyzeRetainsPathForChangedSigningTeam(t *testing.T) {
 	chain := []Process{
 		{Depth: 0, PID: 30, PPID: 20, Name: "everyline-cli"},
 		{Depth: 1, PID: 20, PPID: 1, Name: "codebuddy", Executable: "/Applications/WorkBuddy.app/Contents/Resources/codebuddy"},
@@ -49,7 +49,7 @@ func TestAnalyzeRejectsWrongSigningTeamWithoutPathFallback(t *testing.T) {
 	}
 
 	result := Analyze(chain, identities)
-	if result.AgentSourceType != "unknown" || result.EvidenceType != "macos_code_signature_mismatch" || result.Confidence != "unknown" {
+	if result.AgentSourceType != "workbuddy" || result.EvidenceType != "process_executable_path" || result.Confidence != "medium" {
 		t.Fatalf("Analyze() = %#v", result)
 	}
 }
@@ -114,7 +114,7 @@ func TestAnalyzeUsesDoubaoWorkWindowsAuthenticodeIdentity(t *testing.T) {
 	}
 }
 
-func TestAnalyzeRejectsWrongWindowsCertificateWithoutPathFallback(t *testing.T) {
+func TestAnalyzeRetainsPathForRotatedWindowsCertificate(t *testing.T) {
 	chain := []Process{
 		{Depth: 0, PID: 30, PPID: 20, Name: "everyline-cli"},
 		{Depth: 1, PID: 20, PPID: 1, Name: "Doubao.exe", Executable: `C:\\Users\\lucas\\AppData\\Local\\Doubao\\Doubao.exe`},
@@ -124,12 +124,12 @@ func TestAnalyzeRejectsWrongWindowsCertificateWithoutPathFallback(t *testing.T) 
 	}
 
 	result := Analyze(chain, identities)
-	if result.AgentSourceType != "unknown" || result.EvidenceType != "windows_authenticode_mismatch" || result.Confidence != "unknown" {
+	if result.AgentSourceType != "doubao" || result.EvidenceType != "process_executable_path" || result.Confidence != "medium" {
 		t.Fatalf("Analyze() = %#v", result)
 	}
 }
 
-func TestAnalyzeRejectsWrongWindowsPackageIdentityWithoutPathFallback(t *testing.T) {
+func TestAnalyzeRetainsPathForChangedWindowsPackage(t *testing.T) {
 	chain := []Process{
 		{Depth: 0, PID: 30, PPID: 20, Name: "everyline-cli"},
 		{Depth: 1, PID: 20, PPID: 1, Name: "Codex.exe", Executable: `C:\\Program Files\\WindowsApps\\OpenAI.Codex_1.0.0_x64__2p2nqsd0c76g0\\Codex.exe`},
@@ -139,7 +139,7 @@ func TestAnalyzeRejectsWrongWindowsPackageIdentityWithoutPathFallback(t *testing
 	}
 
 	result := Analyze(chain, identities)
-	if result.AgentSourceType != "unknown" || result.EvidenceType != "windows_package_identity_mismatch" || result.Confidence != "unknown" {
+	if result.AgentSourceType != "codex" || result.EvidenceType != "process_executable_path" || result.Confidence != "medium" {
 		t.Fatalf("Analyze() = %#v", result)
 	}
 }

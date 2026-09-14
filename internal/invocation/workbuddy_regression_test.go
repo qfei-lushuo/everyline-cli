@@ -62,3 +62,26 @@ func TestWorkBuddySafeDeleteShellAttribution(t *testing.T) {
 		t.Fatal("legacy product metadata no longer accepted")
 	}
 }
+
+func TestMacWorkBuddyIdentityChanges(t *testing.T) {
+	chain := []Process{{Depth: 0}, {Depth: 1, Name: "Electron", Executable: "/Applications/WorkBuddy.app/Contents/MacOS/Electron"}}
+	for _, id := range []string{"com.workbuddy.workbuddy", "com.tencent.workbuddy.mac", "future.bundle"} {
+		for _, valid := range []bool{true, false} {
+			got := Analyze(chain, []ApplicationIdentity{{ProcessDepth: 1, BundlePath: "/Applications/WorkBuddy.app", BundleID: id, TeamID: "FN2V63AD2J", SignatureValid: valid}})
+			want := "medium"
+			if valid && id != "future.bundle" {
+				want = "high"
+			}
+			if got.AgentSourceType != "workbuddy" || got.Confidence != want {
+				t.Fatalf("id=%s valid=%v: %+v", id, valid, got)
+			}
+		}
+	}
+}
+
+func TestConflictingProductPathsStayUnknown(t *testing.T) {
+	got := Analyze([]Process{{Depth: 0}, {Depth: 1, Executable: "/Applications/WorkBuddy.app/Contents/MacOS/Electron"}, {Depth: 2, Executable: "/Applications/Doubao.app/Contents/MacOS/Electron"}}, nil)
+	if got.AgentSourceType != "unknown" || got.EvidenceType != "conflicting_process_evidence" {
+		t.Fatalf("ambiguous attribution: %+v", got)
+	}
+}

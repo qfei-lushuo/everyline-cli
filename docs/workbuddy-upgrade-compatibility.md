@@ -1,5 +1,7 @@
 # Windows WorkBuddy 升级兼容修复（2026-09-14）
 
+后续统一策略已更新为 [process-ancestry-v6](attribution-stability.md)，以下为 v5 修复记录。
+
 识别器版本：`process-ancestry-v5`。
 
 - WorkBuddy 国内／海外 Windows 版本仍统一识别为 `workbuddy`。已登记的有效签名优先提供 high 置信度；签名未登记或验证不可用不再阻断进程／路径归因，降级为 medium（路径）或 low（名称），不作为鉴权依据。其他产品的签名不匹配处理不变。

@@ -10,6 +10,7 @@ type applicationRule struct {
 	ID                        string
 	Channel                   string
 	BundleID                  string
+	BundleIDAliases           []string
 	TeamID                    string
 	WindowsPackageFamilyNames []string
 	WindowsCertificateSHA256  []string
@@ -24,7 +25,7 @@ var applicationRules = []applicationRule{
 		BundleID: "com.bot.pc.doubao",
 		TeamID:   "96L78H6LMH",
 		// Leaf certificate from the official Doubao Windows installer 1.81.6.
-		// Treat rotation as an explicit registry update instead of trusting a same-name executable.
+		// Registered certificates increase confidence; rotation retains path/name attribution.
 		WindowsCertificateSHA256: []string{
 			"f05e610036eddb254d1d9344b824ac969cce3e5b5658485cd2167767623262dc",
 		},
@@ -47,10 +48,11 @@ var applicationRules = []applicationRule{
 		ProcessNames:      []string{"doubaowork", "doubaowork.exe"},
 	},
 	{
-		ID:       "client.workbuddy",
-		Channel:  "workbuddy",
-		BundleID: "com.workbuddy.workbuddy",
-		TeamID:   "FN2V63AD2J",
+		ID:              "client.workbuddy",
+		Channel:         "workbuddy",
+		BundleID:        "com.workbuddy.workbuddy",
+		BundleIDAliases: []string{"com.tencent.workbuddy.mac"},
+		TeamID:          "FN2V63AD2J",
 		// Leaf certificate from the official WorkBuddy Windows installer 5.3.14.36279234.
 		WindowsCertificateSHA256: []string{
 			"a7d0aff6774068a4f37485b7e61cbf9d31b65190aaedfe8cb79ebd3c65cbce76",
@@ -92,12 +94,28 @@ func Analyze(chain []Process, identities []ApplicationIdentity) Result {
 		Reason:          "no registered client matched the process ancestry",
 	}
 
+	// Multiple products in ancestry are ambiguous; do not let signatures choose
+	// a different product merely because its verification happened to succeed.
+	sources := map[string]bool{}
+	for _, current := range ancestorProcesses(chain) {
+		for _, rule := range applicationRules {
+			if matchesExecutableMarker(normalizeExecutable(current.Executable), rule.ExecutableMarkers) {
+				sources[rule.Channel] = true
+			}
+		}
+	}
+	if len(sources) > 1 {
+		result.EvidenceType = "conflicting_process_evidence"
+		result.Reason = "multiple registered products matched ancestor executable paths"
+		return result
+	}
+
 	for _, identity := range identities {
 		if !identity.SignatureValid {
 			continue
 		}
 		for _, rule := range applicationRules {
-			if rule.BundleID != "" && rule.TeamID != "" && strings.EqualFold(identity.BundleID, rule.BundleID) && strings.EqualFold(identity.TeamID, rule.TeamID) {
+			if rule.BundleID != "" && rule.TeamID != "" && (strings.EqualFold(identity.BundleID, rule.BundleID) || matchesString(identity.BundleID, rule.BundleIDAliases)) && strings.EqualFold(identity.TeamID, rule.TeamID) {
 				result.AgentSourceType = rule.Channel
 				result.EvidenceType = "macos_code_signature"
 				result.Confidence = "high"
@@ -148,63 +166,8 @@ func Analyze(chain []Process, identities []ApplicationIdentity) Result {
 		}
 	}
 
-	for _, identity := range identities {
-		if identity.BundlePath == "" {
-			continue
-		}
-		bundlePath := normalizeExecutable(identity.BundlePath)
-		for _, rule := range applicationRules {
-			if !matchesExecutableMarker(bundlePath, rule.ExecutableMarkers) {
-				continue
-			}
-			result.EvidenceType = "macos_code_signature_mismatch"
-			result.RuleID = rule.ID + ".signed-bundle-mismatch"
-			if identity.SignatureValid {
-				result.Reason = fmt.Sprintf("application path matched %s but its verified bundle identity was unavailable or did not match the registered bundle and team ids", rule.Channel)
-			} else {
-				result.Reason = fmt.Sprintf("application path matched %s but its code signature could not be verified", rule.Channel)
-			}
-			result.Application = copyApplicationIdentity(identity)
-			result.MatchedProcess = processAtDepth(chain, identity.ProcessDepth)
-			return result
-		}
-	}
-
-	for _, identity := range identities {
-		if identity.ExecutablePath == "" {
-			continue
-		}
-		executable := normalizeExecutable(identity.ExecutablePath)
-		for _, rule := range applicationRules {
-			if !matchesExecutableMarker(executable, rule.ExecutableMarkers) && !matchesProcessNameAtDepth(chain, identity.ProcessDepth, rule.ProcessNames) {
-				continue
-			}
-
-			// WorkBuddy attribution tolerates certificate rotation and helper-specific
-			// certificates. Keep verified matches above as high confidence, but let
-			// process/path evidence below identify it when verification is unavailable.
-			if rule.Channel == "workbuddy" {
-				result.Warnings = append(result.Warnings, "WorkBuddy signing identity did not match; using process attribution")
-				continue
-			}
-
-			result.Application = copyApplicationIdentity(identity)
-			result.MatchedProcess = processAtDepth(chain, identity.ProcessDepth)
-			result.RuleID = rule.ID + ".windows-identity-mismatch"
-			switch {
-			case identity.PackageFamilyName != "":
-				result.EvidenceType = "windows_package_identity_mismatch"
-				result.Reason = fmt.Sprintf("application path matched %s but package family name %s is not registered", rule.Channel, identity.PackageFamilyName)
-			case !identity.SignatureValid:
-				result.EvidenceType = "windows_authenticode_mismatch"
-				result.Reason = fmt.Sprintf("application path matched %s but its Authenticode signature could not be verified", rule.Channel)
-			default:
-				result.EvidenceType = "windows_authenticode_mismatch"
-				result.Reason = fmt.Sprintf("application path matched %s but its verified signing certificate is not registered", rule.Channel)
-			}
-			return result
-		}
-	}
+	// Signatures improve attribution confidence; failed or rotated identities
+	// never veto independent product path/name evidence.
 
 	for index := 1; index < len(chain); index++ {
 		current := chain[index]
@@ -323,4 +286,11 @@ func copyProcess(value Process) *Process {
 func copyApplicationIdentity(value ApplicationIdentity) *ApplicationIdentity {
 	copy := value
 	return &copy
+}
+
+func ancestorProcesses(chain []Process) []Process {
+	if len(chain) < 2 {
+		return nil
+	}
+	return chain[1:]
 }

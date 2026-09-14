@@ -22,6 +22,16 @@ import (
 // Fault modes exist only in the test executable, never in the shipped CLI.
 func TestMain(m *testing.M) {
 	switch os.Getenv("QFEI_INSPECTION_TEST_MODE") {
+	case "partial-stall", "partial-upgrade":
+		report := Analyze([]Process{{Depth: 0}, {Depth: 1, Name: "Electron", Executable: "/Applications/WorkBuddy.app/Contents/MacOS/Electron"}}, nil)
+		_ = json.NewEncoder(os.Stdout).Encode(report)
+		if os.Getenv("QFEI_INSPECTION_TEST_MODE") == "partial-stall" {
+			time.Sleep(time.Hour)
+		}
+		report.Confidence = "high"
+		report.EvidenceType = "macos_code_signature"
+		_ = json.NewEncoder(os.Stdout).Encode(report)
+		os.Exit(0)
 	case "stall":
 		time.Sleep(time.Hour)
 		os.Exit(0)
@@ -159,7 +169,7 @@ func TestInspectionHelperDispatchRejectsBadArguments(t *testing.T) {
 		t.Fatalf("helper dispatch: %v", err)
 	}
 	var result Result
-	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(output.Bytes())).Decode(&result); err != nil {
 		t.Fatal(err)
 	}
 	if len(result.Processes) != 1 || result.Processes[0].PID != int32(os.Getppid()) {
@@ -186,5 +196,27 @@ func assertUnavailableInspection(t *testing.T, report Result) {
 		report.Confidence != "unknown" || report.EvidenceType != "none" || report.DetectorVersion != DetectorVersion ||
 		report.RuleID != "" || report.Application != nil || report.MatchedProcess != nil || len(report.Processes) != 0 {
 		t.Fatalf("unsafe/incomplete fallback metadata: %+v", report)
+	}
+}
+
+func TestInspectionRetainsEvidenceWhenSignatureWorkStalls(t *testing.T) {
+	t.Setenv("QFEI_INSPECTION_TEST_MODE", "partial-stall")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], inspectionHelperFlag, "32")
+	report := inspectCommand(ctx, cmd)
+	if report.AgentSourceType != "workbuddy" || report.Confidence != "medium" || len(report.Warnings) == 0 {
+		t.Fatalf("lost preliminary evidence: %+v", report)
+	}
+	if cmd.ProcessState == nil {
+		t.Fatal("helper not reaped")
+	}
+}
+
+func TestInspectionUsesCompletedIdentityEnrichment(t *testing.T) {
+	t.Setenv("QFEI_INSPECTION_TEST_MODE", "partial-upgrade")
+	report := Inspect(context.Background(), 32)
+	if report.AgentSourceType != "workbuddy" || report.Confidence != "high" {
+		t.Fatalf("lost enriched report: %+v", report)
 	}
 }

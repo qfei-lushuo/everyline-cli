@@ -48,7 +48,7 @@ func TestProductionBinaryInspectionAndRequestHeaders(t *testing.T) {
 		t.Fatalf("helper: %v", err)
 	}
 	var report invocation.Result
-	if err := json.Unmarshal(output, &report); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(output)).Decode(&report); err != nil {
 		t.Fatal(err)
 	}
 	if report.ProductCode != "everyline" || report.ChannelType != "cli" || len(report.Processes) != 1 ||

@@ -52,18 +52,35 @@ func inspectCommand(ctx context.Context, command *exec.Cmd) Result {
 	command.WaitDelay = inspectionWaitDelay
 	configureInspectionCommand(command)
 	err := command.Run() // Wait reaps the helper before any business HTTP call continues.
-	if ctx.Err() != nil {
-		return unavailableInspection("environment inspection timed out or cancelled")
-	}
-	if err != nil || output.overflow {
-		return unavailableInspection("environment inspection helper failed")
-	}
+	// The helper sends a complete preliminary report before signature work.
+	// Wait has joined the pipe copier, so reading the buffer here is race-free.
 	var result Result
-	if err := json.Unmarshal(output.buffer.Bytes(), &result); err != nil ||
-		result.ChannelType != "cli" || result.ProductCode != ProductCodeEveryline ||
-		result.DetectorVersion != DetectorVersion || result.AgentSourceType == "" {
-		return unavailableInspection("environment inspection helper returned invalid output")
+	haveResult := false
+	decoder := json.NewDecoder(bytes.NewReader(output.buffer.Bytes()))
+	for !output.overflow {
+		var next Result
+		if decodeErr := decoder.Decode(&next); decodeErr != nil {
+			if decodeErr != io.EOF && ctx.Err() == nil && err == nil {
+				return unavailableInspection("environment inspection helper returned invalid output")
+			}
+			break
+		}
+		if next.ChannelType != "cli" || next.ProductCode != ProductCodeEveryline ||
+			next.DetectorVersion != DetectorVersion || next.AgentSourceType == "" {
+			return unavailableInspection("environment inspection helper returned invalid output")
+		}
+		result, haveResult = next, true
 	}
+	if output.overflow {
+		return unavailableInspection("environment inspection output exceeded limit")
+	}
+	if !haveResult {
+		return unavailableInspection("environment inspection helper failed or timed out before reporting")
+	}
+	if ctx.Err() != nil || err != nil {
+		result.Warnings = append(result.Warnings, "identity enrichment failed or timed out; retained preliminary attribution")
+	}
+
 	return result
 }
 
@@ -75,7 +92,7 @@ func unavailableInspection(reason string) Result {
 }
 
 // RunInspectionHelper must be dispatched by main BEFORE CLI/auth/update setup.
-// It only reads local process identity and writes one JSON report; it never
+// It only reads local process identity and writes preliminary and enriched JSON reports; it never
 // opens a profile, reads tokens, starts another helper or sends a business call.
 func RunInspectionHelper(args []string, output io.Writer) (bool, error) {
 	if len(args) == 0 || args[0] != inspectionHelperFlag {
@@ -88,7 +105,15 @@ func RunInspectionHelper(args []string, output io.Writer) (bool, error) {
 	if err != nil || maxDepth <= 0 || maxDepth > 128 {
 		return true, fmt.Errorf("invalid inspection helper depth")
 	}
-	return true, json.NewEncoder(output).Encode(inspectProcess(int32(os.Getppid()), maxDepth))
+	encoder := json.NewEncoder(output)
+	var writeErr error
+	result := inspectProcessWithProgress(int32(os.Getppid()), maxDepth, func(preliminary Result) {
+		writeErr = encoder.Encode(preliminary)
+	})
+	if writeErr != nil {
+		return true, writeErr
+	}
+	return true, encoder.Encode(result)
 }
 
 // Bound the helper's output without blocking its pipes if output is oversized.

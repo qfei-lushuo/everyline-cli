@@ -9,14 +9,14 @@
 | X-Qfei-Channel-Type | cli |
 | X-Qfei-Agent-Source-Type | doubao / doubaoWork / doubaoWorkmates / workbuddy / codex / unknown |
 | X-Qfei-Product-Code | everyline |
-| X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / windows_runtime_environment / process_executable_path / process_name / none；身份校验不匹配时可为前三项对应的 `_mismatch` |
+| X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / windows_runtime_environment / process_executable_path / process_name / none；产品路径冲突时为 conflicting_process_evidence |
 | X-Qfei-Channel-Confidence | high / medium / low / unknown |
-| X-Qfei-Detector-Version | process-ancestry-v5 |
+| X-Qfei-Detector-Version | process-ancestry-v6 |
 | X-Qfei-Rule-Id | 命中的规则编号；无匹配时省略 |
 
 不再发送旧字段 `X-Qfei-Request-Source-Type`。Header 为来源归因信息，不是客户端身份证明或鉴权依据。未识别到来源不会拒绝业务请求。
 
-macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证代码签名，再匹配登记的 Bundle ID 和 Team ID。资源内容不属于此处的完整性校验范围：例如 WorkBuddy 在应用内生成 Python `__pycache__`，不应因此失去来源归因。代码签名验证失败或签名身份不匹配仍返回 `unknown`，不直接信任 `codesign -d` 的展示结果。Intel 与 ARM 使用相同规则。
+macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证代码签名，再匹配登记的 Bundle ID 和 Team ID。资源内容不属于此处的完整性校验范围：例如 WorkBuddy 在应用内生成 Python `__pycache__`，不应因此失去来源归因。代码签名验证失败或身份变化时，保留路径／进程名识别结果；签名验证成功且身份登记匹配才提升为 high。Intel 与 ARM 使用相同规则。
 
 飞书内豆包工作（Mac/Windows）、Office 云端、工作伙伴云端、WorkBuddy Web 和 Mac 执行工具受限时的组合兜底使用 low 置信度，新增证据类型 `macos_signed_host_runtime`、`windows_signed_host_runtime`、`macos_runtime_environment`、`linux_runtime_environment`；详见[增量覆盖与样本回放](runtime-host-coverage.md)。
 
@@ -31,8 +31,8 @@ macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证�
 
 ## 超时与兼容
 
-- 一次探测预算 5 秒（含父进程发现与签名检查）；超时会终止并回收辅助进程，Unix 同时终止其签名子进程组。清理允许少量调度开销。
-- 失败/崩溃/输出异常降级为 unknown；依旧发送 cli、everyline 和探测版本。Rule-Id 无值时不发送。
+- 一次探测预算 5 秒（含父进程发现与签名检查）；签名检查前先返回基础报告；超时保留已收到的报告，并终止回收辅助进程，Unix 同时终止其签名子进程组。清理允许少量调度开销。
+- 未收到有效报告的失败/崩溃、非法报告或输出超限降级为 unknown；已收到有效报告后辅助进程失败或超时则保留该报告。依旧发送 cli、everyline 和探测版本。Rule-Id 无值时不发送。
 - 探测子 Context 超时不取消父业务 Context；但探测仍计入原有 `--timeout` 和工作流 deadline，不额外放宽业务截止时间。
 - 仅处理来源字段；trim 后为空、超过 256 字节或包含非可打印 ASCII 的来源值丢弃，不改请求体、认证、成功码及写操作不重试的策略。
 - macOS/Windows 使用对应身份探测；Windows 未命中时再检查宿主环境标记，详见 [Windows 环境兜底](windows-runtime-fallback.md)。Mac/Linux 在无既有命中且无签名不匹配时补充已登记的组合运行时证据。没有匹配证据时保持 unknown。
@@ -64,4 +64,4 @@ macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证�
 
 后端 Context、日志采集及业务服务之后的计费中台等下游透传不属于本次交付范围。
 
-Windows WorkBuddy 的证书轮换降级策略见 [升级兼容修复](workbuddy-upgrade-compatibility.md)；其签名不匹配不再阻断进程／路径归因，其他产品维持原策略。
+Windows WorkBuddy 的证书轮换降级策略见 [升级兼容修复](workbuddy-upgrade-compatibility.md)；其签名不匹配不再阻断进程／路径归因，所有已登记客户端现统一使用 [v6 稳定性策略](attribution-stability.md)。

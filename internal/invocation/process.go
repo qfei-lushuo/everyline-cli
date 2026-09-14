@@ -12,15 +12,25 @@ import (
 // Called only in the disposable inspection helper. Start at the original CLI,
 // not the helper, so adding process isolation does not change identity matching.
 func inspectProcess(pid int32, maxDepth int) Result {
-	chain, warnings := ancestryFromPID(pid, maxDepth)
-	identities, identityWarnings := platformApplicationIdentities(chain)
-	warnings = append(warnings, identityWarnings...)
+	return inspectProcessWithProgress(pid, maxDepth, nil)
+}
 
+// Publish cheap evidence before potentially blocking native signature checks.
+func inspectProcessWithProgress(pid int32, maxDepth int, publish func(Result)) Result {
+	chain, warnings := ancestryFromPID(pid, maxDepth)
+	preliminary := completeProcessResult(chain, nil, warnings)
+	if publish != nil {
+		publish(preliminary)
+	}
+	identities, identityWarnings := platformApplicationIdentities(chain)
+	return completeProcessResult(chain, identities, append(warnings, identityWarnings...))
+}
+
+func completeProcessResult(chain []Process, identities []ApplicationIdentity, warnings []string) Result {
 	result := Analyze(chain, identities)
 	result.Platform = runtime.GOOS
-	result.DetectorVersion = DetectorVersion
 	result.Processes = chain
-	result.Warnings = warnings
+	result.Warnings = append(result.Warnings, warnings...)
 	result = platformEnvironmentFallback(result)
 	return runtimeEnvironmentFallback(result, identities, func(key string) bool {
 		value, exists := os.LookupEnv(key)
