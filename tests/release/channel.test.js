@@ -82,6 +82,7 @@ test("npm 发布入口校验 latest 正式版本且保留 CI 本地打包", (t) 
  */
 test("npm 发布使用独立 OIDC 工作流", () => {
   const workflow = readFileSync(join(__dirname, "../../.github/workflows/npm-publish.yml"), "utf8");
+  assert.equal(pkg.repository?.url, "git+https://github.com/qfeius/everyline-cli.git");
   assert.match(workflow, /id-token:\s*write/);
   assert.match(workflow, /node-version:\s*"24"/);
   assert.match(workflow, /packageData\.version = process\.argv\[2\]/);
