@@ -32,10 +32,11 @@ func completeProcessResult(chain []Process, identities []ApplicationIdentity, wa
 	result.Processes = chain
 	result.Warnings = append(result.Warnings, warnings...)
 	result = platformEnvironmentFallback(result)
-	return runtimeEnvironmentFallback(result, identities, func(key string) bool {
+	result = runtimeEnvironmentFallback(result, identities, func(key string) bool {
 		value, exists := os.LookupEnv(key)
 		return exists && strings.TrimSpace(value) != ""
 	}, os.Getenv)
+	return windowsWorkBuddyToolchainFallback(result)
 }
 
 func Ancestry(maxDepth int) ([]Process, []string) {

@@ -8,7 +8,7 @@
 |---|---|
 | X-Qfei-Channel-Type | cli |
 | X-Qfei-Agent-Source-Type | doubao / doubaoWork / doubaoWorkmates / workbuddy / codex / unknown |
-| X-Qfei-Product-Code | everyline |
+| X-Qfei-Product-Code | contract-review |
 | X-Qfei-Evidence-Type | macos_code_signature / windows_package_identity / windows_authenticode / windows_runtime_environment / process_executable_path / process_name / none；产品路径冲突时为 conflicting_process_evidence |
 | X-Qfei-Channel-Confidence | high / medium / low / unknown |
 | X-Qfei-Detector-Version | process-ancestry-v6 |

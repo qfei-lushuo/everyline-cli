@@ -298,7 +298,7 @@ func TestInvocationFailureAndInvalidMetadataRemainOptional(t *testing.T) {
 			var calls atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls.Add(1)
-				if r.Header.Get(invocation.HeaderChannelType) != "cli" || r.Header.Get(invocation.HeaderProductCode) != "everyline" ||
+				if r.Header.Get(invocation.HeaderChannelType) != "cli" || r.Header.Get(invocation.HeaderProductCode) != "contract-review" ||
 					r.Header.Get(invocation.HeaderAgentSourceType) != "unknown" || r.Header.Get(invocation.HeaderRuleID) != "" {
 					t.Errorf("unsafe fallback headers: %v", r.Header)
 				}

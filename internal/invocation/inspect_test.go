@@ -192,7 +192,7 @@ func TestInspectionOutputIsBoundedEvenWhenCopiedFromPipe(t *testing.T) {
 
 func assertUnavailableInspection(t *testing.T, report Result) {
 	t.Helper()
-	if report.ChannelType != "cli" || report.AgentSourceType != "unknown" || report.ProductCode != "everyline" ||
+	if report.ChannelType != "cli" || report.AgentSourceType != "unknown" || report.ProductCode != "contract-review" ||
 		report.Confidence != "unknown" || report.EvidenceType != "none" || report.DetectorVersion != DetectorVersion ||
 		report.RuleID != "" || report.Application != nil || report.MatchedProcess != nil || len(report.Processes) != 0 {
 		t.Fatalf("unsafe/incomplete fallback metadata: %+v", report)

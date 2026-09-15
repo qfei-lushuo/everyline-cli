@@ -14,7 +14,7 @@ const (
 	HeaderDetectorVersion = "X-Qfei-Detector-Version"
 	HeaderRuleID          = "X-Qfei-Rule-Id"
 
-	ProductCodeEveryline = "everyline"
+	ProductCodeEveryline = "contract-review"
 	legacyRequestSource  = "X-Qfei-Request-Source-Type"
 	maxHeaderValueBytes  = 256
 )

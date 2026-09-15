@@ -48,7 +48,7 @@ func TestApplyHeadersDropsOnlyInvalidOptionalValues(t *testing.T) {
 			report.RuleID = value
 			ApplyHeaders(headers, report)
 			if headers.Get(HeaderRuleID) != "" || headers.Get(HeaderChannelType) != "cli" ||
-				headers.Get(HeaderProductCode) != "everyline" || headers.Get(HeaderAgentSourceType) != "unknown" ||
+				headers.Get(HeaderProductCode) != "contract-review" || headers.Get(HeaderAgentSourceType) != "unknown" ||
 				headers.Get("Authorization") != "Bearer unchanged" || headers.Get("Content-Type") != "application/json" {
 				t.Fatalf("invalid metadata damaged other headers: %v", headers)
 			}
