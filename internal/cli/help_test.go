@@ -48,13 +48,21 @@ func TestEverylineSkillReadinessMatchesLiveHelp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	setupContent, err := os.ReadFile("../../skills/everyline-review/references/setup.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authContent, err := os.ReadFile("../../skills/everyline-review/references/auth.md")
+	if err != nil {
+		t.Fatal(err)
+	}
 	workflowContent, err := os.ReadFile("../../skills/everyline-review/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// 新主文件同时承载公共接入与审查；继续校验原有命令、身份及 dry-run 约束。
-	skillText := string(skillContent)
+	// 公共接入已按需拆到 references；合并入口与参考文件后校验完整安装和授权约束。
+	skillText := strings.Join([]string{string(skillContent), string(setupContent), string(authContent)}, "\n")
 	for _, expected := range []string{
 		"everyline-cli config show <profile> --output json",
 		"--profile <profile> --as <identity>",
@@ -195,20 +203,28 @@ TestSplitEverylineSkillsMatchCurrentCLI 验证两项职责分离 Skill 覆盖三
 返回值：无；任一 Skill 缺少当前 CLI 的关键命令、字段映射或宿主约束时通过测试失败报告差异。
 */
 func TestSplitEverylineSkillsMatchCurrentCLI(t *testing.T) {
-	paths := map[string]string{
-		"cli":        "../../skills/everyline-review/SKILL.md",
-		"review":     "../../skills/everyline-review/SKILL.md",
-		"reviewFlow": "../../skills/everyline-review/SKILL.md",
-		"config":     "../../skills/everyline-review-config/SKILL.md",
-		"management": "../../skills/everyline-review-config/SKILL.md",
+	paths := map[string][]string{
+		"cli": {
+			"../../skills/everyline-review/SKILL.md",
+			"../../skills/everyline-review/references/setup.md",
+			"../../skills/everyline-review/references/auth.md",
+		},
+		"review":     {"../../skills/everyline-review/SKILL.md"},
+		"reviewFlow": {"../../skills/everyline-review/SKILL.md"},
+		"config":     {"../../skills/everyline-review-config/SKILL.md"},
+		"management": {"../../skills/everyline-review-config/SKILL.md"},
 	}
 	contents := make(map[string]string, len(paths))
-	for name, path := range paths {
-		content, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("读取 %s Skill: %v", name, err)
+	for name, skillPaths := range paths {
+		var sections []string
+		for _, path := range skillPaths {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("读取 %s Skill: %v", name, err)
+			}
+			sections = append(sections, string(content))
 		}
-		contents[name] = string(content)
+		contents[name] = strings.Join(sections, "\n")
 	}
 
 	// 公共授权 Skill 必须明确区分本地 loopback 与两个沙箱宿主的 Device Grant。
