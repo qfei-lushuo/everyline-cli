@@ -11,7 +11,7 @@ metadata:
 
 # everyline-review-config
 
-使用 `everyline-cli` 管理审查清单、审查规则和规则分组。执行本 Skill 前通过宿主技能加载能力读取 `everyline-review` 中的「执行前检查」「安装与更新」「Profile 与身份」和「通用边界」，遵守其安装、身份、授权、结构化输出和安全约定；出现鉴权问题时进入其「状态、退出与恢复」。配置管理始终由本 Skill 负责，复用公共接入后返回中断步骤，不进入合同上传或审查流程。不要假定跨 Skill 相对路径可用；依赖未安装时先安装或导入 `everyline-review`，豆包云端分别导入两个 ZIP。
+使用 `everyline-cli` 管理审查清单、审查规则和规则分组。执行本 Skill 前通过宿主技能加载能力读取 `everyline-review` 中的「执行前检查」「安装与更新」「Profile 与身份」和「通用边界」，并按其入口读取适用的 `references/setup.md` 或 `references/auth.md`，遵守其安装、身份、授权、结构化输出和安全约定；出现鉴权问题时进入其「状态、退出与恢复」。这些参考路径以已加载的 `everyline-review` 根目录解析，不以本 Skill 目录或假定的兄弟目录解析。Device 宿主在首次身份相关配置或状态命令前完成其中的会话准备。配置管理始终由本 Skill 负责，复用公共接入后返回中断步骤，不进入合同上传或审查流程。不要假定跨 Skill 相对路径可用；依赖未安装时先安装或导入 `everyline-review`，豆包云端分别导入两个 ZIP。
 
 ## 触发边界
 

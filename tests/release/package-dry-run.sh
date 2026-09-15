@@ -51,6 +51,8 @@ function requiredPackageFiles() {
     "scripts/run.js",
     "scripts/verify-package-version.js",
     "skills/everyline-review/SKILL.md",
+    "skills/everyline-review/references/auth.md",
+    "skills/everyline-review/references/setup.md",
     "skills/everyline-review-config/SKILL.md",
     ...binaries,
   ];
