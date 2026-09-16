@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"git.qtech.cn/ai/everyline-cli/internal/cli"
 	"git.qtech.cn/ai/everyline-cli/internal/config"
+	"golang.org/x/sys/unix"
 )
 
 // 故障注入只通过构建 overlay 替换本机身份检查；实际入口和 helper 生命周期保持生产实现。
@@ -113,8 +113,8 @@ func platformApplicationIdentities([]Process) ([]ApplicationIdentity, []string) 
 	case err := <-done:
 		exited = true
 		var exitError *exec.ExitError
-		if !errors.As(err, &exitError) || exitError.ExitCode() != cli.ExitNetwork {
-			t.Errorf("interrupt should preserve cancellation error mapping: %v", err)
+		if !errors.As(err, &exitError) || exitError.ExitCode() != 130 {
+			t.Errorf("inspection interrupt should exit after helper cleanup: %v", err)
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("interrupt did not cancel inspection before its five-second timeout")
@@ -123,8 +123,8 @@ func platformApplicationIdentities([]Process) ([]ApplicationIdentity, []string) 
 		t.Fatalf("inspection helper was not reaped: %v", err)
 	}
 	helperPID = 0
-	t.Run("second-interrupt-while-reading-stdin", func(t *testing.T) {
-		// stdin 读取不响应 context；再次 Ctrl+C 必须保留操作系统的强制退出行为。
+	t.Run("first-interrupt-while-reading-stdin", func(t *testing.T) {
+		// 业务输入保持 release 的默认信号行为，第一次 Ctrl+C 即退出。
 		command := exec.CommandContext(ctx, binary, "review", "file", "upload", "--stdin", "--name", "test.pdf", "--profile", "local", "--verbose")
 		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		input, err := command.StdinPipe()
@@ -167,8 +167,69 @@ func platformApplicationIdentities([]Process) ([]ApplicationIdentity, []string) 
 		if err := syscall.Kill(-command.Process.Pid, syscall.SIGINT); err != nil {
 			t.Fatal(err)
 		}
-		// 给取消通知留出处理时间，再模拟用户再次按 Ctrl+C。
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case err := <-done:
+			exited = true
+			status := command.ProcessState.Sys().(syscall.WaitStatus)
+			if err == nil || !status.Signaled() || status.Signal() != syscall.SIGINT {
+				t.Fatalf("first interrupt should terminate blocked stdin read: %v", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("first interrupt was swallowed while reading stdin")
+		}
+	})
+	t.Run("first-interrupt-while-reading-app-secret", func(t *testing.T) {
+		master, err := os.OpenFile("/dev/ptmx", os.O_RDWR|syscall.O_NOCTTY, 0600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer master.Close()
+		if err := unix.IoctlSetPointerInt(int(master.Fd()), unix.TIOCSPTLCK, 0); err != nil {
+			t.Fatal(err)
+		}
+		number, err := unix.IoctlGetInt(int(master.Fd()), unix.TIOCGPTN)
+		if err != nil {
+			t.Fatal(err)
+		}
+		slave, err := os.OpenFile(fmt.Sprintf("/dev/pts/%d", number), os.O_RDWR|syscall.O_NOCTTY, 0600)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer slave.Close()
+		logPath := filepath.Join(directory, "login-command.log")
+		log, err := os.Create(logPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer log.Close()
+		command := exec.CommandContext(ctx, binary, "auth", "login", "--as", "app", "--app-secret-stdin", "--profile", "local")
+		command.Stdin, command.Stderr = slave, log
+		command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		if err := command.Start(); err != nil {
+			t.Fatal(err)
+		}
+		done := make(chan error, 1)
+		go func() { done <- command.Wait() }()
+		exited := false
+		defer func() {
+			if !exited {
+				_ = command.Process.Kill()
+				<-done
+			}
+		}()
+		ready := false
+		deadline := time.Now().Add(3 * time.Second)
+		for time.Now().Before(deadline) {
+			data, err := os.ReadFile(logPath)
+			if err == nil && strings.Contains(string(data), "App secret: ") {
+				ready = true
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		if !ready {
+			t.Fatal("login did not reach terminal password input")
+		}
 		if err := syscall.Kill(-command.Process.Pid, syscall.SIGINT); err != nil {
 			t.Fatal(err)
 		}
@@ -177,10 +238,10 @@ func platformApplicationIdentities([]Process) ([]ApplicationIdentity, []string) 
 			exited = true
 			status := command.ProcessState.Sys().(syscall.WaitStatus)
 			if err == nil || !status.Signaled() || status.Signal() != syscall.SIGINT {
-				t.Fatalf("second interrupt should terminate blocked stdin read: %v", err)
+				t.Fatalf("first interrupt should terminate password input: %v", err)
 			}
 		case <-time.After(2 * time.Second):
-			t.Fatal("second interrupt was swallowed while reading stdin")
+			t.Fatal("first interrupt was swallowed while reading app secret")
 		}
 	})
 	if count := requests.Load(); count != 0 {
