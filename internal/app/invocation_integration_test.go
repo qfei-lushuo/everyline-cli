@@ -51,7 +51,7 @@ func TestProductionBinaryInspectionAndRequestHeaders(t *testing.T) {
 	if err := json.NewDecoder(bytes.NewReader(output)).Decode(&report); err != nil {
 		t.Fatal(err)
 	}
-	if report.ProductCode != "everyline" || report.ChannelType != "cli" || len(report.Processes) != 1 ||
+	if report.ProductCode != "contract-review" || report.ChannelType != "cli" || len(report.Processes) != 1 ||
 		report.Processes[0].PID != int32(os.Getpid()) {
 		t.Fatalf("wrong helper dispatch: %+v", report)
 	}
@@ -95,7 +95,7 @@ func TestProductionBinaryInspectionAndRequestHeaders(t *testing.T) {
 			t.Fatalf("binary did not send matching Trace headers: %v", headers)
 		}
 		successfulTrace = parts[1]
-		if headers.Get(invocation.HeaderChannelType) != "cli" || headers.Get(invocation.HeaderProductCode) != "everyline" ||
+		if headers.Get(invocation.HeaderChannelType) != "cli" || headers.Get(invocation.HeaderProductCode) != "contract-review" ||
 			headers.Get(invocation.HeaderDetectorVersion) != invocation.DetectorVersion ||
 			headers.Get(invocation.HeaderAgentSourceType) == "" || headers.Get(invocation.HeaderConfidence) == "" ||
 			headers.Get(invocation.HeaderEvidenceType) == "" || headers.Get("Authorization") != "Bearer binary-test-token" {

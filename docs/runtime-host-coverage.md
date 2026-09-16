@@ -1,6 +1,6 @@
 # 客户端识别增量与样本回放
 
-Detector version: `process-ancestry-v4`。EveryLine 与 contract-cli 使用相同规则；产品编码分别保持 everyline、contract。
+本页记录 `process-ancestry-v4` 引入的场景，当前探测器已升级到 `process-ancestry-v6`。EveryLine 与 contract-cli 使用相同规则；当前产品编码分别为 contract-review、contract。
 
 ## 原有能力
 

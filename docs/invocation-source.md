@@ -22,7 +22,7 @@ macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证�
 
 ## 代码结构
 
-- `internal/invocation/`：从 contract-cli 当前已验证的探测模块移植，保留父进程回溯、macOS 签名、Windows 包身份/签名规则和隔离超时，产品编码改为 everyline。不依赖同事的 cli-inspect 仓库，也不要求本机安装 contract-cli。
+- `internal/invocation/`：从 contract-cli 当前已验证的探测模块移植，保留父进程回溯、macOS 签名、Windows 包身份/签名规则和隔离超时，EveryLine 产品编码使用 contract-review。不依赖同事的 cli-inspect 仓库，也不要求本机安装 contract-cli。
 - `internal/cli/environment_hook.go`：统一装配三个业务模块的 HTTP 客户端，每次请求探测并填 Header；`invocation_source` 诊断只打印七个来源白名单字段，不输出 token 或完整进程信息。`--verbose` 另输出独立的 `request_trace` 诊断。
 - `internal/openplatform/client.go`：有序 BeforeRequestHook 扩展点，位于每次 HTTP 尝试内、发送前，不挂到 token Provider。
 - `internal/app/app.go`：在配置和认证初始化之前分派私有探测辅助入口，辅助进程不递归发请求。
@@ -32,7 +32,7 @@ macOS 来源识别使用 `codesign --verify --strict --ignore-resources` 验证�
 ## 超时与兼容
 
 - 一次探测预算 5 秒（含父进程发现与签名检查）；签名检查前先返回基础报告；超时保留已收到的报告，并终止回收辅助进程，Unix 同时终止其签名子进程组。清理允许少量调度开销。
-- 未收到有效报告的失败/崩溃、非法报告或输出超限降级为 unknown；已收到有效报告后辅助进程失败或超时则保留该报告。依旧发送 cli、everyline 和探测版本。Rule-Id 无值时不发送。
+- 未收到有效报告的失败/崩溃、非法报告或输出超限降级为 unknown；已收到有效报告后辅助进程失败或超时则保留该报告。依旧发送 cli、contract-review 和探测版本。Rule-Id 无值时不发送。
 - 探测子 Context 超时不取消父业务 Context；但探测仍计入原有 `--timeout` 和工作流 deadline，不额外放宽业务截止时间。
 - 仅处理来源字段；trim 后为空、超过 256 字节或包含非可打印 ASCII 的来源值丢弃，不改请求体、认证、成功码及写操作不重试的策略。
 - macOS/Windows 使用对应身份探测；Windows 未命中时再检查宿主环境标记，详见 [Windows 环境兜底](windows-runtime-fallback.md)。Mac/Linux 在无既有命中且无签名不匹配时补充已登记的组合运行时证据。没有匹配证据时保持 unknown。

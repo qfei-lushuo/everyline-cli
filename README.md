@@ -346,9 +346,9 @@ everyline-cli completion zsh
 
 ## 请求来源识别
 
-业务请求默认在每次发送前探测调用客户端，包含 GET 重试及审查状态轮询。支持识别 doubao、doubaoWork、workbuddy、codex，无法识别时为 unknown；不会在安装、登录或 Profile 中固定客户端来源。
+业务请求默认在每次发送前探测调用客户端，包含 GET 重试及审查状态轮询。支持识别 doubao、doubaoWork、doubaoWorkmates、workbuddy、codex，无法识别时为 unknown；不会在安装、登录或 Profile 中固定客户端来源。
 
-请求携带 `X-Qfei-Channel-Type: cli`、`X-Qfei-Product-Code: everyline`、`X-Qfei-Agent-Source-Type` 及四个诊断 Header。探测使用独立辅助进程，预算 5 秒，失败降级不阻断业务；探测耗时计入原有 `--timeout` / 工作流 deadline，原请求取消仍生效。token 请求和纯本地命令不运行业务探测。
+请求携带 `X-Qfei-Channel-Type: cli`、`X-Qfei-Product-Code: contract-review`、`X-Qfei-Agent-Source-Type` 及四个诊断 Header。探测使用独立辅助进程，预算 5 秒，失败降级不阻断业务；探测耗时计入原有 `--timeout` / 工作流 deadline，原请求取消仍生效。token 请求和纯本地命令不运行业务探测。
 
 在原业务命令追加 `--verbose` 可在 stderr 查看实际附加的来源字段，stdout 仍只输出业务结果。字段定义和验收方式见 [来源 Header 接入说明](docs/invocation-source.md)。本功能不修改认证、业务参数或后端计费规则，不包含更新检测。
 
